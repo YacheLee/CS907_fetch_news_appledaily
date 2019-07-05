@@ -1,86 +1,68 @@
 package uk.ac.warwick;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.postgresql.util.PGobject;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.*;
 
-import static java.util.stream.Collectors.toList;
 import static uk.ac.warwick.DBUtils.toArrayNode;
 
 public class TermToDocs {
-    static int i = 0;
-    public static List<String> getDistinctTermsFromDatabase(NamedParameterJdbcTemplate namedParameterJdbcTemplate) {
-        String sql = "SELECT distinct(term) as term from appledaily_term_freq";
-        Map<String, Object> map = new HashMap();
-        List<Map<String, Object>> maps = namedParameterJdbcTemplate.queryForList(sql, map);
-        return maps.parallelStream().map(obj -> obj.get("term").toString()).collect(toList());
-    }
+    public static int[] insertTermDocs(NamedParameterJdbcTemplate namedParameterJdbcTemplate, Map<String, ArrayNode> termDocs) throws SQLException {
+        System.out.println("insertTermDocs!!");
+        Set<String> terms = termDocs.keySet();
+        int n = terms.size();
+        System.out.println("N is "+n);
+        String sql = "INSERT INTO appledaily_term_docs (term, docs) VALUES (:term, :docs)";
 
-    public static List<String> writeAndGetDistinctTerms(File file, NamedParameterJdbcTemplate namedParameterJdbcTemplate) throws IOException {
-        Charset utf8 = StandardCharsets.UTF_8;
-        List<String> distinctTerms = getDistinctTermsFromDatabase(namedParameterJdbcTemplate);
-        if (file.exists()) {
-            file.delete();
-        }
-        Files.write(Paths.get(file.getAbsolutePath()), distinctTerms, utf8);
-        return distinctTerms;
-    }
+        Map[] maps = new Map[n];
+        int i = 0;
+        for(String term: terms){
+            PGobject obj = new PGobject();
+            obj.setType("jsonb");
+            obj.setValue(termDocs.get(term).toString());
 
-    public static List<String> readDistinctTerms(File file){
-        try (Stream<String> stream = Files.lines(Paths.get(file.getAbsolutePath()))) {
-            return stream
-                    .map(String::toUpperCase)
-                    .collect(Collectors.toList());
-        } catch (IOException e) {
-            return null;
-        }
-    }
-
-    public static List<String> getDistinctTerms(File file, NamedParameterJdbcTemplate namedParameterJdbcTemplate) throws IOException {
-        List<String> distinctTerms = file.exists() ? readDistinctTerms(file): writeAndGetDistinctTerms(file, namedParameterJdbcTemplate);
-        return distinctTerms;
-    }
-
-    public static void writeTermDocs(List<String> distinctTerms, NamedParameterJdbcTemplate namedParameterJdbcTemplate){
-        String sql = "Select doc_id From appledaily_term_freq WHERE term = :term";
-
-        int n = distinctTerms.size();
-        distinctTerms.parallelStream().forEach(term->{
-            System.out.println("【"+(i++)+"/"+n+"】");
             Map<String, Object> map = new HashMap();
             map.put("term", term);
-            List<String> docIds = namedParameterJdbcTemplate.queryForList(sql, map).parallelStream().map(obj -> obj.get("doc_id").toString()).collect(toList());
-            try {
-                insertTermDoc(namedParameterJdbcTemplate, term, docIds);
-            } catch (SQLException ex) {
-                System.out.println("[Error] term=" + term);
-                System.out.println(ex);
-            }
-        });
+            map.put("docs", obj);
+            maps[i++] = map;
+        }
+
+        return namedParameterJdbcTemplate.batchUpdate(sql, maps);
     }
 
-    private static int insertTermDoc(NamedParameterJdbcTemplate namedParameterJdbcTemplate, String term, List<String> docs) throws SQLException {
-        PGobject obj = new PGobject();
-        obj.setType("jsonb");
-        obj.setValue(toArrayNode(docs).toString());
+    public static Map<String, ArrayNode> getTermDocs(NamedParameterJdbcTemplate namedParameterJdbcTemplate, int offset, int limit){
+        Map<String, ArrayNode> termDocs = new HashMap();
+        ObjectMapper objectMapper = new ObjectMapper();
+        String sql = "SELECT * FROM appledaily_jieba OFFSET "+offset+" LIMIT "+limit;
+        List<Map<String, Object>> list = namedParameterJdbcTemplate.queryForList(sql, new HashMap());
 
-        String sql = "INSERT INTO appledaily_term_docs (term, docs) VALUES (:term, :docs)";
-        Map<String, Object> map = new HashMap();
-        map.put("term", term);
-        map.put("docs", obj);
+        list.stream().forEach(map->{
+            String docID = map.get("id").toString();
+            ArrayNode termArrayNode = toArrayNode(map.get("text").toString());
+            Iterator<JsonNode> iterator = termArrayNode.iterator();
+            while(iterator.hasNext()){
+                String term = iterator.next().asText();
+                ArrayNode oriArrayNode = termDocs.getOrDefault(term, objectMapper.createArrayNode());
+                oriArrayNode.add(docID);
+                termDocs.put(term, oriArrayNode);
+            }
+        });
+        return termDocs;
+    }
 
-        return namedParameterJdbcTemplate.update(sql, map);
+    public static void run(NamedParameterJdbcTemplate namedParameterJdbcTemplate) throws SQLException {
+        int limit = 100;
+        int n = 120297;
+        Map<String, ArrayNode> termDocs = new HashMap();
+        for (int offset = 0; offset <= n; offset+=limit) {
+            System.out.println("【"+offset+"/"+n+"】");
+            termDocs.putAll(getTermDocs(namedParameterJdbcTemplate, offset, limit));
+        }
+        insertTermDocs(namedParameterJdbcTemplate, termDocs);
     }
 }

@@ -1,11 +1,13 @@
 package uk.ac.warwick;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import javax.sql.DataSource;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,5 +46,22 @@ public class DBUtils {
 
     public static ArrayNode toArrayNode(List<String> list) {
         return new ObjectMapper().valueToTree(list);
+    }
+
+    public static ArrayNode toArrayNode(String text){
+        ObjectMapper objectMapper = new ObjectMapper();
+        if(text.isEmpty()){
+            return objectMapper.createArrayNode();
+        }
+        final JsonNode arrNode;
+        try {
+            arrNode = objectMapper.readTree(text);
+            if (arrNode.isArray()) {
+                return (ArrayNode)arrNode;
+            }
+            return objectMapper.createArrayNode();
+        } catch (IOException e) {
+            return objectMapper.createArrayNode();
+        }
     }
 }
