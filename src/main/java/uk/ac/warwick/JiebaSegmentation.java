@@ -1,7 +1,5 @@
 package uk.ac.warwick;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.huaban.analysis.jieba.JiebaSegmenter;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
@@ -83,10 +81,6 @@ public class JiebaSegmentation {
                 "AND timestamp < '" + year + "-12-31'";
         Map<String, News> map = new HashMap();
         return Integer.parseInt(namedParameterJdbcTemplate.queryForList(sql, map).get(0).get("count").toString());
-    }
-
-    public static ArrayNode toArrayNode(List<String> list) {
-        return new ObjectMapper().valueToTree(list);
     }
 
     public static List<String> getSegmentText(String sentence) {

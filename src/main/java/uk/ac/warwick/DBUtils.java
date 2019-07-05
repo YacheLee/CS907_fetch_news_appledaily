@@ -1,10 +1,13 @@
 package uk.ac.warwick;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import javax.sql.DataSource;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -37,5 +40,9 @@ public class DBUtils {
         dataSource.setUsername(user);
         dataSource.setPassword(password);
         return dataSource;
+    }
+
+    public static ArrayNode toArrayNode(List<String> list) {
+        return new ObjectMapper().valueToTree(list);
     }
 }

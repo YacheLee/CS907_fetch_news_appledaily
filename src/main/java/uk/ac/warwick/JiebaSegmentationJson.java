@@ -1,6 +1,5 @@
 package uk.ac.warwick;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.huaban.analysis.jieba.JiebaSegmenter;
 import org.postgresql.util.PGobject;
@@ -11,6 +10,7 @@ import java.sql.SQLException;
 import java.util.*;
 
 import static uk.ac.warwick.DBUtils.getDataSource;
+import static uk.ac.warwick.DBUtils.toArrayNode;
 
 public class JiebaSegmentationJson {
     public int i = 0;
@@ -73,10 +73,6 @@ public class JiebaSegmentationJson {
                 "AND timestamp < '" + year + "-12-31'";
         Map<String, News> map = new HashMap();
         return Integer.parseInt(namedParameterJdbcTemplate.queryForList(sql, map).get(0).get("count").toString());
-    }
-
-    public static ArrayNode toArrayNode(List<String> list) {
-        return new ObjectMapper().valueToTree(list);
     }
 
     public static List<String> getSegmentList(String sentence) {
