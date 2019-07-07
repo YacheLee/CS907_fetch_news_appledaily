@@ -19,7 +19,7 @@ import static uk.ac.warwick.DBUtils.toArrayNode;
 
 public class JiebaSentences {
     public static List<Map<String, Object>> getTermDocs(NamedParameterJdbcTemplate namedParameterJdbcTemplate, int offset, int limit) {
-        String sql = "SELECT * FROM appledaily_term_docs LIMIT " + limit + " OFFSET " + offset;
+        String sql = "SELECT * FROM appledaily_term_docs ORDER BY term LIMIT " + limit + " OFFSET " + offset;
         return namedParameterJdbcTemplate.queryForList(sql, new HashMap());
     }
 
@@ -51,29 +51,33 @@ public class JiebaSentences {
         namedParameterJdbcTemplate.batchUpdate(sql, maps);
     }
 
-    public static void run(NamedParameterJdbcTemplate namedParameterJdbcTemplate) throws SQLException {
+    public static void run(NamedParameterJdbcTemplate namedParameterJdbcTemplate){
         int limit = 100;
         int n = 951316;
 
         for (int offset = 0; offset <= n; offset += limit) {
-            System.out.println("【" + offset + "/" + n + "】");
-            List<Map<String, Object>> termDocs = getTermDocs(namedParameterJdbcTemplate, offset, limit);
+            run(namedParameterJdbcTemplate, n, offset, limit);
+        }
+    }
 
-            Map<String, List> termSentences = new HashMap();
-            for (Map map : termDocs) {
-                String term = map.get("term").toString();
-                ArrayNode docs = toArrayNode(map.get("docs").toString());
-                List<ArrayNode> jiebaSentences = getJiebaSentences(namedParameterJdbcTemplate, docs);
-                termSentences.put(term, jiebaSentences);
-            }
+    public static void run(NamedParameterJdbcTemplate namedParameterJdbcTemplate, int n, int offset, int limit){
+        System.out.println("【" + offset + "/" + n + "】");
+        List<Map<String, Object>> termDocs = getTermDocs(namedParameterJdbcTemplate, offset, limit);
+
+        Map<String, List> termSentences = new HashMap();
+        for (Map map : termDocs) {
+            String term = map.get("term").toString();
+            ArrayNode docs = toArrayNode(map.get("docs").toString());
+            List<ArrayNode> jiebaSentences = getJiebaSentences(namedParameterJdbcTemplate, docs);
+            termSentences.put(term, jiebaSentences);
+        }
+        try {
+            insertTermSentence(namedParameterJdbcTemplate, termSentences);
+        } catch (Exception ex) {
             try {
-                insertTermSentence(namedParameterJdbcTemplate, termSentences);
-            } catch (Exception ex) {
-                try {
-                    Files.write(Paths.get("C:\\Users\\Scott\\CS907_fetch_news_appledaily\\src\\main\\resources\\term_docs_error.txt"), (offset+"\n").getBytes(), StandardOpenOption.APPEND);
-                }catch (IOException e) {
-                    System.out.println(e);
-                }
+                Files.write(Paths.get("C:\\Users\\Scott\\CS907_fetch_news_appledaily\\src\\main\\resources\\term_docs_error2.txt"), (offset+"\n").getBytes(), StandardOpenOption.APPEND);
+            }catch (IOException e) {
+                System.out.println(e);
             }
         }
     }
