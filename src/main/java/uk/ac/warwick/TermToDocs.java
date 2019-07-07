@@ -38,7 +38,7 @@ public class TermToDocs {
     public static Map<String, ArrayNode> getTermDocs(NamedParameterJdbcTemplate namedParameterJdbcTemplate, int offset, int limit){
         Map<String, ArrayNode> termDocs = new HashMap();
         ObjectMapper objectMapper = new ObjectMapper();
-        String sql = "SELECT * FROM appledaily_jieba OFFSET "+offset+" LIMIT "+limit;
+        String sql = "SELECT * FROM appledaily_jieba ORDER BY id OFFSET "+offset+" LIMIT "+limit;
         List<Map<String, Object>> list = namedParameterJdbcTemplate.queryForList(sql, new HashMap());
 
         list.stream().forEach(map->{
